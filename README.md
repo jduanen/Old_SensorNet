@@ -1,6 +1,6 @@
 # Old_SensorNet
 
-**Development has stopped on this repo. See: [Active SensorNet Repo](https://github.com/jduanen/SensorNet)
+**Development has stopped on this repo. See: [Active SensorNet Repo](https://github.com/jduanen/SensorNet)**
 
 
 # SensorNet
