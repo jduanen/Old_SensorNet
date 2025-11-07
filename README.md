@@ -1,3 +1,8 @@
+# Old_SensorNet
+
+**Development has stopped on this repo. See: [Active SensorNet Repo](https://github.com/jduanen/SensorNet)
+
+
 # SensorNet
 
 Collection of ESP8266-based sensors that are managed by ESPHome which is integrated with Home Assistant.
