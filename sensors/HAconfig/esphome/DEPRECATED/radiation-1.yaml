@@ -1,0 +1,74 @@
+esphome:
+  name: radiation-1
+  friendly_name: Radiation Garage
+  comment: Alpha, Beta, and Gamma Radiation Sensor
+
+esp8266:
+    board: esp01_1m
+
+# Disable logging
+logger:
+  level: DEBUG  # makes uart stream available in esphome logstream
+  baud_rate: 0  # disable logging over uart
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Radiation Garage"
+    password: !secret wifi_ap_password
+
+captive_portal:
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/jduanen/ESPHomeComponents
+    components: [ geigerkit ]
+    refresh: always
+#  - source:
+#      type: local
+#      path: /home/jdn/Code/ESPHomeComponents/components/
+#    components: [ geigerkit ]
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  baud_rate: 9600
+
+geigerkit:
+    id: gk0
+    cpm:
+      name: "counts/min"
+    uSv_hr:
+      name: "uSieverts/hr"
+    volts:
+      name: "volts"
+
+sensor:
+  - platform: wifi_signal
+    name: "Radiation Garage WiFi Signal"
+    update_interval: 60s
+
+switch:
+  - platform: gpio
+    name: "Reset"
+    id: Reset
+    pin:
+      number: GPIO5  # aka D1
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - delay: 500ms
+      - switch.turn_off: Reset

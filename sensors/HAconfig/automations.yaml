@@ -1,0 +1,328 @@
+- id: '1761846976663'
+  alias: Sunrise Off
+  description: ''
+  triggers:
+  - trigger: sun
+    event: sunrise
+    offset: 0
+    id: Sunrise On
+  conditions: []
+  actions:
+  - parallel:
+    - action: switch.turn_off
+      metadata: {}
+      data: {}
+      target:
+        entity_id: switch.family_room_lamps
+    - action: switch.turn_off
+      metadata: {}
+      data: {}
+      target:
+        entity_id: switch.garden_lights_37_e5_00
+    - action: switch.turn_off
+      metadata: {}
+      data: {}
+      target:
+        entity_id: switch.christmas_lights_2c_f4_ea
+  - parallel:
+    - action: switch.turn_on
+      metadata: {}
+      data: {}
+      target:
+        entity_id: switch.garden_fountain_4c_a1_d1
+  mode: single
+- id: '1761848806351'
+  alias: Sunset On/Off
+  description: ''
+  triggers:
+  - trigger: sun
+    event: sunset
+    offset: 0
+    id: Sunset
+  conditions: []
+  actions:
+  - parallel:
+    - action: switch.turn_on
+      metadata: {}
+      data: {}
+      target:
+        entity_id: switch.family_room_lamps
+    - action: switch.turn_on
+      metadata: {}
+      data: {}
+      target:
+        entity_id: switch.garden_lights_37_e5_00
+    - action: switch.turn_on
+      metadata: {}
+      data: {}
+      target:
+        entity_id: switch.christmas_lights_2c_f4_ea
+  - parallel:
+    - action: switch.turn_off
+      metadata: {}
+      data: {}
+      target:
+        entity_id: switch.garden_fountain_4c_a1_d1
+  mode: single
+- id: '1761849922817'
+  alias: Bedtime Off Weekdays
+  description: ''
+  triggers:
+  - trigger: time
+    at: 01:45:00
+    id: Bedtime Off Weekdays
+    weekday:
+    - thu
+    - wed
+    - tue
+    - mon
+  conditions: []
+  actions:
+  - delay:
+      seconds: '{{ range(0, 3600) | random }}'
+  - action: switch.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id: switch.family_room_lamps
+  - type: turn_off
+    device_id: c279dc1247f35a25f5de919ea011d3bf
+    entity_id: a80b1af7f0b38cc4bde721e12a7c8663
+    domain: switch
+  - type: turn_off
+    device_id: 7bce986364ba60e281daca7123fb4ae3
+    entity_id: 7880a369a433e00d7d3fb4450614d951
+    domain: switch
+  mode: single
+- id: '1761850390190'
+  alias: Bedtime Off Weekends
+  description: ''
+  triggers:
+  - trigger: time
+    at: 02:30:00
+    id: Bedtime Off Weekends
+    weekday:
+    - sun
+    - fri
+    - sat
+  conditions: []
+  actions:
+  - delay:
+      seconds: '{{ range(0, 3600) | random }}'
+  - action: switch.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id: switch.family_room_lamps
+  - type: turn_off
+    device_id: c279dc1247f35a25f5de919ea011d3bf
+    entity_id: a80b1af7f0b38cc4bde721e12a7c8663
+    domain: switch
+  - type: turn_off
+    device_id: 7bce986364ba60e281daca7123fb4ae3
+    entity_id: 7880a369a433e00d7d3fb4450614d951
+    domain: switch
+  mode: single
+- id: '1761851843538'
+  alias: Poll Home Weather
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    id: Poll Home Weather
+    minutes: /10
+  conditions: []
+  actions:
+  - action: weather.get_forecasts
+    metadata: {}
+    data:
+      type: hourly
+    response_variable: forecast
+    target:
+      device_id: 5c38c9faf2a062dac17ed3802cba840a
+  - action: input_number.set_value
+    metadata: {}
+    target:
+      entity_id: input_number.forecast_temp
+    data:
+      value: '{{ forecast[''weather.forecast_home''].forecast[0].temperature }}'
+  mode: single
+- id: '1761933558466'
+  alias: Kitty Heating Pad On/Off
+  description: ''
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - input_number.forecast_temp
+    id: Kitty Heater On
+    below: 60
+    value_template: '
+
+      '
+  - trigger: numeric_state
+    entity_id:
+    - input_number.forecast_temp
+    above: 66
+    id: Kitty Heater Off
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: numeric_state
+        entity_id: input_number.forecast_temp
+        below: 60
+      sequence:
+      - type: turn_on
+        device_id: 788a3e15fa164ef5efcd9f3e978bf513
+        entity_id: 5e43e129e83e806426b43feb5ae1a7b0
+        domain: switch
+    - conditions:
+      - condition: numeric_state
+        entity_id: input_number.forecast_temp
+        above: 66
+      sequence:
+      - type: turn_off
+        device_id: 788a3e15fa164ef5efcd9f3e978bf513
+        entity_id: 5e43e129e83e806426b43feb5ae1a7b0
+        domain: switch
+  mode: single
+- id: '1761933607445'
+  alias: Hallway Light on Garage Motion
+  description: ''
+  triggers:
+  - type: motion
+    device_id: 9b7a43112977c14c71ee1ad57a60e35c
+    entity_id: 01dbbb7f9582ebecac78f97450ba1aef
+    domain: binary_sensor
+    trigger: device
+    id: Garage Motion
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: 7d3ed5b55c10608bbed3f2de4b956e17
+    entity_id: 1c3757ff9cd8c23ee21f7464c9d08864
+    domain: switch
+  - delay:
+      hours: 0
+      minutes: 1
+      seconds: 0
+      milliseconds: 0
+  - type: turn_off
+    device_id: 7d3ed5b55c10608bbed3f2de4b956e17
+    entity_id: 1c3757ff9cd8c23ee21f7464c9d08864
+    domain: switch
+  mode: single
+- id: '1761934174195'
+  alias: Hot Water Pump On/Off
+  description: ''
+  triggers:
+  - trigger: time
+    at: 06:00:00
+    id: Hot Water Pump On Morning Weekdays
+    weekday:
+    - fri
+    - thu
+    - wed
+    - tue
+    - mon
+  - trigger: time
+    at: '20:00:00'
+    id: Hot Water Pump Off at Night on Weekdays
+    weekday:
+    - fri
+    - thu
+    - wed
+    - tue
+    - mon
+  - trigger: time
+    at: 09:00:00
+    id: Hot Water Pump On Mornings Weekends
+    weekday:
+    - sun
+    - sat
+  - trigger: time
+    at: '21:00:00'
+    id: Hot Water Pump Off at Night on Weekends
+    weekday:
+    - sat
+    - sun
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: time
+        after: 06:00:00
+        before: '20:00:00'
+        weekday:
+        - fri
+        - thu
+        - wed
+        - tue
+        - mon
+      sequence:
+      - type: turn_on
+        device_id: 047ac6b3a1fba78b689b9f2c4ae8626e
+        entity_id: 44778f5434b3e369479510c6461b46cc
+        domain: switch
+    - conditions:
+      - condition: time
+        after: 09:00:00
+        before: '21:00:00'
+        weekday:
+        - sat
+        - sun
+      sequence:
+      - type: turn_on
+        device_id: 047ac6b3a1fba78b689b9f2c4ae8626e
+        entity_id: 44778f5434b3e369479510c6461b46cc
+        domain: switch
+    - conditions:
+      - condition: time
+        after: '20:00:00'
+        before: 06:00:00
+        weekday:
+        - mon
+        - tue
+        - wed
+        - thu
+        - fri
+      sequence:
+      - type: turn_off
+        device_id: 047ac6b3a1fba78b689b9f2c4ae8626e
+        entity_id: 44778f5434b3e369479510c6461b46cc
+        domain: switch
+    - conditions:
+      - condition: time
+        after: '21:00:00'
+        before: 09:00:00
+        weekday:
+        - sat
+        - sun
+      sequence:
+      - type: turn_off
+        device_id: 047ac6b3a1fba78b689b9f2c4ae8626e
+        entity_id: 44778f5434b3e369479510c6461b46cc
+        domain: switch
+  mode: single
+- id: '1761936978942'
+  alias: Garage Motion Announcement
+  description: ''
+  triggers:
+  - type: motion
+    device_id: 9b7a43112977c14c71ee1ad57a60e35c
+    entity_id: 01dbbb7f9582ebecac78f97450ba1aef
+    domain: binary_sensor
+    trigger: device
+    id: Garage Motion
+  conditions: []
+  actions:
+  - action: assist_satellite.announce
+    metadata: {}
+    data:
+      message: Garage Motion Detected
+      preannounce: true
+    target:
+      entity_id:
+      - assist_satellite.home_assistant_voice_dwr_09e4aa_assist_satellite
+      - assist_satellite.waveshare_voice_mbr_assist_satellite
+      - assist_satellite.waveshare_voice_fr_assist_satellite
+  mode: single

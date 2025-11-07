@@ -1,0 +1,77 @@
+substitutions:
+  friendly_name: "Air Quality MWR"
+
+esphome:
+  name: air-quality-sps-0
+  friendly_name: ${friendly_name}
+  comment: "Air Quality (SPS) Sensor in Monica Workroom"
+
+esp8266:
+  board: esp01_1m
+
+logger:
+  level: WARN
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: ${friendly_name}
+    password: !secret wifi_ap_password
+
+captive_portal:
+
+web_server:
+  port: 80
+
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  scan: false
+  frequency: 50kHz
+
+sensor:
+  - platform: wifi_signal
+    id: wifi_rssi
+    name: "${friendly_name} WiFi Signal"
+  - platform: sps30
+    pm_1_0:
+      name: "PM <1µm Weight"
+      id: "PM_1_0"
+    pm_2_5:
+      name: "PM <2.5µm Weight"
+      id: "PM_2_5"
+    pm_4_0:
+      name: "PM <4µm Weight"
+      id: "PM_4_0"
+    pm_10_0:
+      name: "PM <10µm Weight"
+      id: "PM_10_0"
+    pmc_0_5:
+      name: "PM <0.5µm Number"
+      id: "PMC_0_5"
+    pmc_1_0:
+      name: "PM <1µm Number"
+      id: "PMC_1_0"
+    pmc_2_5:
+      name: "PM <2.5µm Number"
+      id: "PMC_2_5"
+    pmc_4_0:
+      name: "PM <4µm Number"
+      id: "PMC_4_0"
+    pmc_10_0:
+      name: "PM <10µm Number"
+      id: "PMC_10_0"
+    pm_size:
+      name: "Typical Particle size"
+      id: "pm_size"
+    address: 0x69
+    update_interval: 60s

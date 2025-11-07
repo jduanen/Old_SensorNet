@@ -1,0 +1,129 @@
+substitutions:
+  friendly_name: "LED Sign Garage"
+
+globals:
+  - id: page_index
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/jduanen/ESPHomeComponents
+    components: [ led_display ]
+    refresh: always
+
+esphome:
+  name: led-sign
+  friendly_name: ${friendly_name}
+  comment: "LED Sign Board with Bi-LED Array in Garage"
+
+esp32:
+  board: seeed_xiao_esp32c3
+  variant: esp32c3
+  framework:
+    type: esp-idf
+
+logger:
+  level: WARN
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: ${friendly_name}
+    password: !secret wifi_ap_password
+  power_save_mode: none
+
+captive_portal:
+
+web_server:
+  port: 80
+
+display:
+  - platform: led_display
+    id: leds
+    intensity: 75
+    scroll_enable: true
+    scroll_mode: STOP
+    scroll_speed: 90ms
+    scroll_dwell: 400ms
+    scroll_delay: 1500ms
+    flip_x: false
+    #update_interval: 5s
+    fonts:
+      - MT_Pixel_5x7
+      - MatrixLight6
+      - MatrixLight6X
+    lambda: |-
+      if (!id(led_display_text).state.empty()) {
+        it.printLED(id(led_display_text).state.c_str());
+      };
+
+font:
+  - file: "fonts/5x7_MT_Pixel.ttf"
+    id: MT_Pixel_5x7
+    size: 7
+  - file: "fonts/MatrixLight6.ttf"
+    id: MatrixLight6
+    size: 6
+  - file: "fonts/MatrixLight6X.ttf"
+    id: MatrixLight6X
+    size: 6
+  - file: "fonts/MatrixLight8.ttf"
+    id: MatrixLight8
+    size: 8
+  - file: "gfonts://Roboto"
+    id: roboto
+    size: 7
+
+sensor:
+  - platform: wifi_signal
+    id: wifi_rssi
+    name: "${friendly_name} WiFi Signal"
+
+text_sensor:
+  - platform: homeassistant
+    name: LED_DisplayText
+    id: led_display_text
+    entity_id: input_text.led_display_text_input
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty()) {
+              id(leds).update();
+            }
+
+binary_sensor:
+  - platform: gpio
+    id: led_display_sensor
+    pin: 
+      number: 10
+      mode:
+        input: true
+        pulldown: true
+    name: led_display_motion
+    device_class: motion
+    on_press:
+      then:
+        - logger.log: "Motion detected, turning on display"
+        - led_display.turn_on
+    on_release:
+      then:
+        - logger.log: "No motion detected, starting off timer"
+        - delay: 60s
+        - if:
+            condition:
+              binary_sensor.is_off: led_display_sensor
+            then:
+              - logger.log: "No motion for 1 min, turning off display"
+              - led_display.turn_off

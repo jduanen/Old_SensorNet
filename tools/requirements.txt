@@ -1,0 +1,6 @@
+matplotlib
+numpy
+paho-mqtt
+pandas
+pytz
+PyYaml

@@ -1,0 +1,330 @@
+substitutions:
+  name: person-sensor
+  device_description: ${name} LD2450-based Person Detector
+  
+esphome:
+  name: ${name}
+  friendly_name: LD2450-based Person Detector
+  comment: LD2450 Presence Sensor with ESPHome
+  on_boot:
+  - priority: 900.0
+    then:
+      - lambda: |-
+          id(cpu_speed) = ESP.getCpuFreqMHz();
+  platformio_options:
+    board_build.flash_mode: dio
+    board_build.mcu: esp32s3
+
+esp32:
+  board: seeed_xiao_esp32s3
+  variant: esp32s3
+  framework:
+    type: arduino
+    version: latest
+    platform_version: 6.3.2
+
+# Enable logging
+logger:
+  level: VERBOSE
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${name} Fallback Hotspot"
+    password: !secret wifi_ap_password
+
+  power_save_mode: none
+
+captive_portal:
+
+# Open web port for browser access
+web_server:
+  port: 80
+
+globals:
+  - id: cpu_speed
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: last_update_ld2450
+    type: unsigned long
+    restore_value: no
+    initial_value: '0'
+  - id: init_zone_publish
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: last_illuminance
+    type: float
+    restore_value: no
+    initial_value: "-1"
+
+debug:
+  update_interval: 30s
+
+uart:
+  id: uart_ld2450
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 256000
+  parity: NONE
+  stop_bits: 1
+
+# ld2450 configuration
+ld2450:
+  id: ld2450_radar
+  throttle: 1000ms
+
+binary_sensor:
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    has_target:
+      name: Presence
+    has_moving_target:
+      name: Moving Target
+    has_still_target:
+      name: Still Target
+
+text_sensor:
+  - platform: debug
+    reset_reason:
+      name: "ESP Reset Reason"
+      icon: mdi:anchor
+      disabled_by_default: True
+  - platform: wifi_info
+    ip_address:
+      name: ESP IP Address
+      entity_category: "diagnostic"
+      disabled_by_default: True
+      icon: mdi:ip-network
+    mac_address:
+      name: ESP MAC
+      entity_category: "diagnostic"
+      icon: mdi:ip-network
+      disabled_by_default: True
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    version:
+      name: "LD2450 Firmware"
+    mac_address:
+      name: "LD2450 BT MAC"
+    target_1:
+      direction:
+        name: "Target-1 Direction"
+    target_2:
+      direction:
+        name: "Target-2 Direction"
+    target_3:
+      direction:
+        name: "Target-3 Direction"
+
+sensor:
+  - platform: template
+    name: "ESP CPU Speed"
+    accuracy_decimals: 0
+    icon: mdi:cpu-32-bit
+    unit_of_measurement: Mhz
+    disabled_by_default: True
+    lambda: |-
+      return (id(cpu_speed));
+    entity_category: "diagnostic"
+    update_interval: 600s
+  - platform: template
+    id: sys_esp_temperature
+    name: ESP Temperature
+    lambda: return temperatureRead();
+    unit_of_measurement: °C
+    device_class: TEMPERATURE
+    update_interval: 45s
+    entity_category: "diagnostic"
+  - platform: uptime
+    name: ESP Uptime
+    id: sys_uptime
+    update_interval: 60s
+  - platform: wifi_signal 
+    name: RSSI
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+  - platform: template
+    id: esp_memory
+    icon: mdi:memory
+    name: ESP Free Memory
+    lambda: return heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024;
+    unit_of_measurement: 'kB'
+    state_class: measurement
+    entity_category: "diagnostic"
+    update_interval: 60s
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    target_count:
+      name: Presence Target Count
+    still_target_count:
+      name: Still Target Count
+    moving_target_count:
+      name: Moving Target Count
+    target_1:
+      x:
+        name: Target-1 X
+      y:
+        name: Target-1 Y
+      speed:
+        name: Target-1 Speed
+      angle:
+        name: Target-1 Angle
+      distance:
+        name: Target-1 Distance
+      resolution:
+        name: Target-1 Resolution
+    target_2:
+      x:
+        name: Target-2 X
+      y:
+        name: Target-2 Y
+      speed:
+        name: Target-2 Speed
+      angle:
+        name: Target-2 Angle
+      distance:
+        name: Target-2 Distance
+      resolution:
+        name: Target-2 Resolution
+    target_3:
+      x:
+        name: Target-3 X
+      y:
+        name: Target-3 Y
+      speed:
+        name: Target-3 Speed
+      angle:
+        name: Target-3 Angle
+      distance:
+        name: Target-3 Distance
+      resolution:
+        name: Target-3 Resolution
+    zone_1:
+      target_count:
+        name: Zone-1 All Target Count
+      still_target_count:
+        name: Zone-1 Still Target Count
+      moving_target_count:
+        name: Zone-1 Moving Target Count
+    zone_2:
+      target_count:
+        name: Zone-2 All Target Count
+      still_target_count:
+        name: Zone-2 Still Target Count
+      moving_target_count:
+        name: Zone-2 Moving Target Count
+    zone_3:
+      target_count:
+        name: Zone-3 All Target Count
+      still_target_count:
+        name: Zone-3 Still Target Count
+      moving_target_count:
+        name: Zone-3 Moving Target Count
+
+light:
+  - platform: status_led
+    name: sys_status
+    pin: GPIO13
+    internal: True
+    restore_mode: ALWAYS_OFF
+  - platform: binary
+    name: "Red Info Light"
+    output: board_info_ed
+    entity_category: "config"
+    restore_mode: ALWAYS_OFF
+
+time:
+  - platform: sntp
+    id: time_sntp
+
+output:
+  - platform: gpio
+    id: board_info_ed
+    pin: GPIO12
+
+switch:
+  - platform: factory_reset
+    name: Factory Reset
+    disabled_by_default: True
+    icon: mdi:heart-broken
+  - platform: template
+    name: Zout1 Enable
+    id: zone_ex1_enable
+    optimistic: True
+    icon: mdi:account-cancel
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: template
+    name: Illuminance Fast-Update
+    id: bh1750_fast_update
+    optimistic: True
+    entity_category: diagnostic
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: mdi:run-fast
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    bluetooth:
+      name: "Bluetooth"
+    multi_target:
+      name: "Multi Target Tracking"
+
+number:
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    presence_timeout:
+      name: "Timeout"
+    zone_1:
+      x1:
+        name: Zone-1 X1
+      y1:
+        name: Zone-1 Y1
+      x2:
+        name: Zone-1 X2
+      y2:
+        name: Zone-1 Y2
+    zone_2:
+      x1:
+        name: Zone-2 X1
+      y1:
+        name: Zone-2 Y1
+      x2:
+        name: Zone-2 X2
+      y2:
+        name: Zone-2 Y2
+    zone_3:
+      x1:
+        name: Zone-3 X1
+      y1:
+        name: Zone-3 Y1
+      x2:
+        name: Zone-3 X2
+      y2:
+        name: Zone-3 Y2
+
+button:
+  - platform: restart
+    icon: mdi:power-cycle
+    name: "ESP Reboot"
+    entity_category: diagnostic
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    factory_reset:
+      name: "LD2450 Factory Reset"
+    restart:
+      name: "LD2450 Restart"
+  

@@ -1,0 +1,287 @@
+substitutions:
+  name_str: "Barometer DWR"
+  upper_devicename: "BAROMETER_DWR"
+  encoder_min: "0"
+  encoder_max: "3"   # 4 menu items (0-3)
+  update_intv: 15s  ## 60s
+  screen_timeout: 30s  ## 3min
+
+esphome:
+  name: barometer_dwr
+  friendly_name: Barometer_DWR
+
+esp32:
+  board: seeed_xiao_esp32c3
+  framework:
+    type: arduino
+
+logger:
+  level: DEBUG
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Barometer"
+    password: !secret wifi_ap_password
+
+captive_portal:
+
+web_server:
+  port: 80
+
+globals:
+  - id: current_page
+    type: int
+    restore_value: false
+    initial_value: '0'
+
+i2c:
+  sda: GPIO6  # D4
+  scl: GPIO7  # D5
+  scan: true
+
+time:
+  - platform: homeassistant
+    id: esptime
+                         
+font:
+  - file: "gfonts://Roboto"
+    id: roboto
+    size: 14
+  - file: "gfonts://Roboto"
+    id: roboto_mid
+    size: 24
+  - file: "gfonts://Roboto"
+    id: roboto_big
+    size: 32
+  - file: "gfonts://Roboto"
+    id: menu_font
+    size: 12
+  - file: "fonts/RobotoSlab-Regular.ttf"
+    id: roboto_label
+    size: 14
+
+text_sensor:
+  - platform: homeassistant
+    entity_id: ota.status
+    name: "OTA Status"
+  - platform: version
+    id: firmware_version
+    name: "Firmware Version"
+  - platform: wifi_info
+    ip_address:
+      id: ipAddr
+      name: ESP IP Address
+    ssid:
+      name: ESP Connected SSID
+    bssid:
+      name: ESP Connected BSSID
+    mac_address:
+      id: macAddr
+      name: ESP Mac Wifi Address
+    scan_results:
+      name: ESP Latest Scan Results
+    dns_address:
+      name: ESP DNS Address
+
+binary_sensor:
+  - platform: gpio
+    id: encoder_button
+    name: "Rotary Encoder Button"
+    pin:
+      number: GPIO2  # D0
+      #inverted: True
+      #allow_other_uses: True  #This is needed to share pin betwen functions: https://esphome.io/guides/configuration-types#config-pin-schema
+      mode:
+        input: True
+        pullup: True
+    filters:
+      - delayed_on: 30ms
+      - delayed_off: 30ms
+    on_press:
+      - logger.log: "Rotary Encoder Button Pressed!"
+      - if:
+          condition:
+            display_menu.is_active: oled_menu
+          then:
+            - lambda: 'ESP_LOGI("encoder_button", "ACTIVE: hide menu, %d", id(current_page));'
+            - display_menu.hide: oled_menu
+            - display.page.show: !lambda |-
+                auto page = id(error_page);
+                switch (id(current_page)) {
+                  case 0:
+                    page = id(state_page);
+                    break;
+                  case 1:
+                    page = id(altitude_page);
+                    break;
+                  case 2:
+                    page = id(settings_page);
+                    break;
+                  case 3:
+                    page = id(blank_page);
+                    break;
+                }
+                ESP_LOGI("encoder_button", "show page: %d", page);
+                return page;
+          else:
+            - lambda: 'ESP_LOGI("encoder_button", "INACTIVE: show menu, %d", id(current_page));'
+            - display_menu.show:  oled_menu
+
+sensor:
+  - platform: wifi_signal
+    id: wifi_rssi
+    name: "Barometer WiFi Signal"
+    update_interval: 60s
+  - platform: dps310
+    temperature:
+      name: "Temperature"
+      id: temp
+      unit_of_measurement: °C
+      accuracy_decimals: 2
+    pressure:
+      name: "Pressure"
+      id: press
+      unit_of_measurement: hPa
+      accuracy_decimals: 3
+    address: 0x77
+    update_interval: ${update_intv}
+  - platform: rotary_encoder
+    id: menu_encoder
+    name: "Page Navigator"
+    filters:
+      - debounce: 30ms
+    pin_a:
+      number: GPIO3  # D1
+      mode:
+        input: true
+        pullup: true
+    pin_b:
+      number: GPIO4  # D2
+      mode:
+        input: true
+        pullup: true
+    resolution: 1  # 4 # higher resolution for smoother detection
+    min_value: ${encoder_min}
+    max_value: ${encoder_max}
+    on_clockwise:
+      - logger.log: "Turned Clockwise"
+      - display_menu.down: oled_menu
+      - lambda: |-
+          if (id(current_page) < ${encoder_max}) id(current_page)++;
+    on_anticlockwise:
+      - logger.log: "Turned Counter-clockwise"
+      - display_menu.up: oled_menu
+      - lambda: |-
+          if (id(current_page) > ${encoder_min}) id(current_page)--;
+  - platform: template
+    name: "Altitude"
+    id: altitude
+    unit_of_measurement: m
+    accuracy_decimals: 3
+
+interval:
+    interval: ${update_intv}
+    then:
+      - lambda: |-
+          // approximate altitude from pressure and temperature
+          const double P0 = 1013.25;  // sea level standard pressure in hPa
+          const double lapseRate = 0.0065;  // temp lapse rate in K/m
+          double T_K = id(temp).state + 273.15;  // convert current temp in C to K
+          double alt = (T_K / lapseRate) * (1.0 - pow((id(press).state / P0), 0.190284));
+          ESP_LOGI("interval", "Altitude: %f.3", alt);
+          id(altitude).publish_state(alt);
+
+graphical_display_menu:
+  display: oled_display
+  id: oled_menu
+  active: false
+  font: menu_font
+  mode: rotary
+  on_redraw:
+    then:
+      - component.update: oled_display
+  items:
+    - type: command
+      text: "Current State"
+      on_value:
+        - lambda: |-
+            id(current_page) = 0;
+            ESP_LOGI("oled_menu", "Current State: %d", id(current_page));
+        - display_menu.hide: oled_menu
+        - display.page.show: state_page
+    - type: command
+      text: "Altitude Info"
+      on_value:
+        - lambda: |-
+            id(current_page) = 1;
+            ESP_LOGI("oled_menu", "Altitude Info: %d", id(current_page));
+        - display_menu.hide: oled_menu
+        - display.page.show: altitude_page
+    - type: command
+      text: "Settings"
+      on_value:
+        - lambda: |-
+            id(current_page) = 2;
+            ESP_LOGI("oled_menu", "Settings: %d", id(current_page));
+        - display_menu.hide: oled_menu
+        - display.page.show: settings_page
+    - type: command
+      text: "Display Off"
+      on_value:
+        - lambda: |-
+            ESP_LOGI("oled_menu", "Blank Page");
+        - display_menu.hide: oled_menu
+        - display.page.show: state_page
+display:
+  - platform: ssd1306_i2c
+    model: "SH1106 128x64"
+    address: 0x3C
+    id: oled_display
+    pages:
+      - id: state_page
+        lambda: |-
+          ESP_LOGI("oled_display", "state_page: %d, %d", id(oled_menu).is_active(), id(current_page));
+          if (!id(oled_menu).is_active() && id(current_page) == 0) {
+            it.printf(0,  0, id(roboto), "%16.3f hPa", id(press).state);
+            it.printf(8, 17, id(roboto), "%16.2f °C", id(temp).state);
+            it.printf(8, 34, id(roboto), "%16.1f m", id(altitude).state);
+
+            // TODO get time from TOD chip, sync with server when possible
+            char str[20];
+            // %y = 2-digit year, %m = month, %d = day, %H = hour, %M = minute, %S = second
+            // Format: "YY:MM:DD HH:MM:SS"
+            time_t curr = id(esptime).now().timestamp;
+            strftime(str, sizeof(str), "%y:%m:%d  %H:%M:%S", localtime(&curr));
+            it.printf(5, 50, id(roboto), "%s", str);
+          }
+      - id: altitude_page
+        lambda: |-
+          ESP_LOGI("oled_display", "altitude_page: %d, %d", id(oled_menu).is_active(), id(current_page));
+          if (!id(oled_menu).is_active() && id(current_page) == 1) {
+            it.printf(0, 0, id(roboto), "ALTITUDE");
+          }
+      - id: settings_page
+        lambda: |-
+          ESP_LOGI("oled_display", "settings_page: %d, %d", id(oled_menu).is_active(), id(current_page));
+          if (!id(oled_menu).is_active() && id(current_page) == 2) {
+            it.printf(0, 0, id(roboto), "SETTINGS");
+          }
+      - id: blank_page
+        lambda: |-
+          ESP_LOGI("oled_display", "blank_page: %d, %d", id(oled_menu).is_active(), id(current_page));
+      - id: error_page
+        lambda: |-
+          ESP_LOGI("oled_display", "error_page: %d, %d", id(oled_menu).is_active(), id(current_page));
+          it.printf(16, 28, id(roboto), "ERROR!");
